@@ -50,3 +50,7 @@ Los pedidos se guardan en una transacción. Si falta inventario, se revierte toda
 
 - Entidad-relación: Diagrama_Entidad-Relacion.png
 - Componentes: Diagrama_Componentes.png
+
+![Entidad-relación](docs/Diagrama_Entidad-Relacion.png)
+
+![Componentes](docs/Diagrama_Componentes.png)
