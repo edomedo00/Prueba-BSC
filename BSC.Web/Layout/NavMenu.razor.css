@@ -1,0 +1,11 @@
+﻿.marca {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+}
+
+    .marca:hover {
+        color: #bfdbfe;
+    }

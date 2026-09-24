@@ -1,0 +1,223 @@
+﻿@page "/inventario/entrada"
+@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using System.Net.Http.Json
+@using BSC.Web.Models
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Entrada de inventario</PageTitle>
+
+<div class="header-pagina">
+    <h1>Entrada de inventario</h1>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Volver al inicio
+    </a>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (permitido)
+{
+    <EditForm Model="@formulario" OnValidSubmit="@GuardarAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label for="producto" class="form-label">Producto</label>
+
+            <InputSelect id="producto" class="form-select" @bind-Value="formulario.ProductoID">
+                <option value="0">Selecciona un producto</option>
+
+                @foreach (var producto in productos)
+                {
+                    <option value="@producto.ProductoID">
+                        @producto.Nombre — Disponible: @producto.Inventario
+                    </option>
+                }
+            </InputSelect>
+        </div>
+
+        <div class="mb-3">
+            <label for="cantidad" class="form-label">
+                Piezas que ingresan
+            </label>
+
+            <InputNumber id="cantidad" class="form-control" min="1" @bind-Value="formulario.Cantidad" />
+        </div>
+
+        <button type="submit" class="btn btn-primary" disabled="@guardando">
+            @(guardando ? "Guardando..." : "Registrar entrada")
+        </button>
+    </EditForm>
+}
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger mt-3" role="alert">@error</div>
+}
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-success mt-3" role="status">@mensaje</div>
+}
+
+@code {
+    private EntradaFormulario formulario = new();
+    private List<ProductoInventario> productos = new();
+
+    private bool cargando = true;
+    private bool permitido;
+    private bool guardando;
+
+    private string? error;
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var respuesta = await Http.GetAsync("api/auth/me");
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                error = "No fue posible consultar la sesión.";
+                return;
+            }
+
+            var usuario = await respuesta.Content.ReadFromJsonAsync<UsuarioSesion>();
+
+            if (usuario?.Rol != "Personal administrativo")
+            {
+                error = "No tienes permiso para registrar entradas.";
+                return;
+            }
+
+            await CargarProductosAsync();
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarProductosAsync()
+    {
+        permitido = false;
+
+        using var respuesta = await Http.GetAsync("api/productos/inventario");
+
+        if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            error = "No fue posible cargar los productos.";
+            return;
+        }
+
+        productos = await respuesta.Content.ReadFromJsonAsync<List<ProductoInventario>>() ?? new();
+
+        permitido = true;
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (guardando)
+        {
+            return;
+        }
+
+        guardando = true;
+        error = null;
+        mensaje = null;
+        bool registrada = false;
+
+        try
+        {
+            using var respuesta = await Http.PostAsJsonAsync(
+                $"api/productos/{formulario.ProductoID}/entradas",
+                new { cantidad = formulario.Cantidad });
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                registrada = true;
+                mensaje = "Entrada registrada correctamente.";
+                formulario = new();
+
+                await CargarProductosAsync();
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                permitido = false;
+                error = "No tienes permiso para registrar entradas.";
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.BadRequest)
+            {
+                var detalle = await respuesta.Content
+                    .ReadFromJsonAsync<ErrorApi>();
+
+                error = detalle?.Mensaje ?? "Verifica el producto y la cantidad.";
+            }
+            else
+            {
+                error = "No se pudo confirmar el resultado. Consulta el inventario antes de repetir.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            error = registrada
+                ? "La entrada se guardó, pero no se pudo actualizar la lista."
+                : "Se perdió la conexión. Consulta el inventario antes de repetir.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = registrada
+                ? "La entrada se guardó, pero la actualización de la lista tardó demasiado."
+                : "La solicitud tardó demasiado. Consulta el inventario antes de repetir.";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    public class EntradaFormulario
+    {
+        [Range(1, int.MaxValue, ErrorMessage = "Selecciona un producto.")]
+        public int ProductoID { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor que 0.")]
+        public int Cantidad { get; set; } = 1;
+    }
+
+    public class ErrorApi
+    {
+        public string? Mensaje { get; set; }
+    }
+}

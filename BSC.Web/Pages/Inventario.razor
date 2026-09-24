@@ -1,0 +1,118 @@
+﻿@page "/inventario"
+@using System.Net
+@using System.Net.Http.Json
+@using BSC.Web.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Inventario</PageTitle>
+
+<div class="header-pagina">
+    <h1>Existencias de productos</h1>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Volver al inicio
+    </a>
+</div>
+
+<button class="btn btn-outline-primary mb-3"
+        disabled="@cargando"
+        @onclick="CargarInventarioAsync">
+    Actualizar
+</button>
+
+@if (cargando)
+{
+    <p>Cargando inventario...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger" role="alert">
+        @error
+    </div>
+}
+else if (productos.Count == 0)
+{
+    <p>No hay productos registrados.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Clave</th>
+                    <th>Producto</th>
+                    <th class="text-end">Existencias</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var producto in productos)
+                {
+                    <tr @key="producto.ProductoID">
+                        <td>@producto.ClaveProducto</td>
+                        <td>@producto.Nombre</td>
+                        <td class="text-end">
+                            @producto.Inventario
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<ProductoInventario> productos = new();
+    private bool cargando = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarInventarioAsync();
+    }
+
+    private async Task CargarInventarioAsync()
+    {
+        cargando = true;
+        error = null;
+        productos.Clear();
+
+        try
+        {
+            using var respuesta = await Http.GetAsync("api/productos/inventario");
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                error = "No tienes permiso para consultar el inventario.";
+                return;
+            }
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                error = "No fue posible consultar el inventario.";
+                return;
+            }
+
+            productos = await respuesta.Content.ReadFromJsonAsync<List<ProductoInventario>>() ?? new();
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+}

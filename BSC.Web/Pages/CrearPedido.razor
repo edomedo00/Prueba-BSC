@@ -1,0 +1,335 @@
+﻿@page "/pedidos/crear"
+@using System.Net
+@using System.Net.Http.Json
+@using BSC.Web.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Crear pedido</PageTitle>
+
+<div class="header-pagina">
+    <h1>Crear pedido</h1>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Volver al inicio
+    </a>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando productos...</p>
+}
+else if (permitido)
+{
+    <fieldset disabled="@enviando">
+        <div class="mb-3">
+            <label for="cliente" class="form-label">Cliente</label>
+            <input id="cliente" class="form-control" maxlength="100" @bind="cliente" />
+        </div>
+
+        <div class="mb-3">
+            <label for="producto" class="form-label">Producto</label>
+            <select id="producto" class="form-select" @bind="productoSeleccionado">
+                <option value="0">Selecciona un producto</option>
+
+                @foreach (var producto in productos)
+                {
+                    <option value="@producto.ProductoID">
+                        @producto.Nombre — Disponible: @producto.Inventario
+                    </option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="cantidad" class="form-label">Cantidad</label>
+            <input id="cantidad" type="number" class="form-control" min="1" @bind="cantidad" />
+        </div>
+
+        <button class="btn btn-outline-primary mb-3"
+                @onclick="AgregarProducto">
+            Agregar al carrito
+        </button>
+
+        @if (carrito.Count == 0)
+        {
+            <p>El carrito está vacío.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var linea in carrito)
+                        {
+                            <tr @key="linea.ProductoID">
+                                <td>@linea.Nombre</td>
+                                <td>@linea.Cantidad</td>
+                                <td>
+                                    <button class="btn btn-outline-danger btn-sm"
+                                            @onclick="() => carrito.Remove(linea)">
+                                        Quitar
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <button class="btn btn-primary"
+                    @onclick="ConfirmarPedidoAsync">
+                @(enviando ? "Confirmando..." : "Confirmar pedido")
+            </button>
+        }
+    </fieldset>
+}
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger mt-3" role="alert">@error</div>
+}
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-success mt-3" role="status">@mensaje</div>
+}
+
+
+@code {
+    private List<ProductoInventario> productos = new();
+    private readonly List<LineaCarrito> carrito = new();
+
+    private string cliente = string.Empty;
+    private int productoSeleccionado;
+    private int cantidad = 1;
+
+    private bool cargando = true;
+    private bool permitido;
+    private bool enviando;
+
+    private string? error;
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var respuesta = await Http.GetAsync("api/auth/me");
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                error = "No fue posible consultar la sesión.";
+                return;
+            }
+
+            var usuario = await respuesta.Content.ReadFromJsonAsync<UsuarioSesion>();
+
+            if (usuario?.Rol != "Vendedor")
+            {
+                error = "Solo los vendedores pueden crear pedidos.";
+                return;
+            }
+
+            await CargarProductosAsync();
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarProductosAsync()
+    {
+        permitido = false;
+
+        using var respuesta = await Http.GetAsync("api/productos/inventario");
+
+        if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        if (!respuesta.IsSuccessStatusCode)
+        {
+            error = "No fue posible cargar las existencias.";
+            return;
+        }
+
+        productos = await respuesta.Content.ReadFromJsonAsync<List<ProductoInventario>>() ?? new();
+
+        permitido = true;
+    }
+
+    private void AgregarProducto()
+    {
+        error = null;
+        mensaje = null;
+
+        var producto = productos.FirstOrDefault(p => p.ProductoID == productoSeleccionado);
+
+        if (producto is null)
+        {
+            error = "Selecciona un producto.";
+            return;
+        }
+
+        if (cantidad <= 0)
+        {
+            error = "La cantidad debe ser mayor a cero.";
+            return;
+        }
+
+        // comprueba si el producto ya estaba en el carrito y agrega la cantidad a la ya registrada
+        var existente = carrito.FirstOrDefault(p => p.ProductoID == producto.ProductoID);
+
+        long total = (long)(existente?.Cantidad ?? 0) + cantidad;
+
+        if (total > producto.Inventario)
+        {
+            error = "La cantidad supera las existencias disponibles.";
+            return;
+        }
+
+        if (existente is null)
+        {
+            carrito.Add(new LineaCarrito
+                {
+                    ProductoID = producto.ProductoID,
+                    Nombre = producto.Nombre,
+                    Cantidad = cantidad
+                });
+        }
+        else
+        {
+            // si el producto ya estaba, actualiza la cantidad
+            existente.Cantidad = (int)total;
+        }
+
+        cantidad = 1;
+    }
+
+    private async Task ConfirmarPedidoAsync()
+    {
+        if (enviando)
+        {
+            return;
+        }
+
+        error = null;
+        mensaje = null;
+
+        if (string.IsNullOrWhiteSpace(cliente) || cliente.Trim().Length > 100)
+        {
+            error = "Escribe el nombre del cliente, máximo 100 caracteres.";
+            return;
+        }
+
+        if (carrito.Count == 0)
+        {
+            error = "Agrega productos al carrito.";
+            return;
+        }
+
+        var solicitud = new
+        {
+            cliente = cliente.Trim(),
+            productos = carrito.Select(p => new
+            {
+                productoID = p.ProductoID,
+                cantidad = p.Cantidad
+            }).ToList()
+        };
+
+        enviando = true;
+        bool confirmado = false;
+
+        try
+        {
+            using var respuesta = await Http.PostAsJsonAsync("api/pedidos", solicitud);
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                confirmado = true;
+                carrito.Clear();
+                cliente = string.Empty;
+                productoSeleccionado = 0;
+                cantidad = 1;
+                mensaje = "Pedido registrado correctamente.";
+
+                await CargarProductosAsync();
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                permitido = false;
+                error = "No tienes permiso para crear pedidos.";
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.BadRequest)
+            {
+                var detalle = await respuesta.Content.ReadFromJsonAsync<ErrorApi>();
+
+                error = detalle?.Mensaje ?? "Verifica los datos y las existencias.";
+
+                await CargarProductosAsync();
+            }
+            else
+            {
+                error = "No se pudo confirmar el resultado. Revisa los pedidos antes de repetir.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            error = confirmado
+                ? "El pedido se guardó, pero no se actualizaron las existencias en pantalla." // por confirmado = true
+                : "Se perdió la conexión. Solicita revisar los pedidos antes de repetir.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = confirmado
+                ? "El pedido se guardó, pero la actualización de existencias tardó demasiado."
+                : "La solicitud tardó demasiado. Solicita revisar los pedidos antes de repetir.";
+        }
+        finally
+        {
+            enviando = false;
+        }
+    }
+
+    public class LineaCarrito
+    {
+        public int ProductoID { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+    }
+
+    public class ErrorApi
+    {
+        public string? Mensaje { get; set; }
+    }
+}

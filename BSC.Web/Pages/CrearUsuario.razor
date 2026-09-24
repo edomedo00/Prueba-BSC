@@ -1,0 +1,203 @@
+﻿@page "/usuarios/crear"
+@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using System.Net.Http.Json
+@using BSC.Web.Models
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Crear usuario</PageTitle>
+
+<div class="header-pagina">
+    <h1>Crear usuario</h1>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Volver al inicio
+    </a>
+</div>
+
+@if (cargando)
+{
+    <p>Cargando perfiles...</p>
+}
+else if (permitido)
+{
+    <EditForm Model="@formulario" OnValidSubmit="@GuardarAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label for="nombre" class="form-label">Usuario</label>
+            <InputText id="nombre" class="form-control" autocomplete="off" @bind-Value="formulario.NombreUsuario" />
+        </div>
+
+        <div class="mb-3">
+            <label for="clave" class="form-label">Contraseña</label>
+            <InputText id="clave" type="password" class="form-control" autocomplete="new-password" @bind-Value="formulario.Contrasena" />
+        </div>
+
+        <div class="mb-3">
+            <label for="rol" class="form-label">Perfil</label>
+            <InputSelect id="rol" class="form-select" @bind-Value="formulario.RolID">
+                <option value="0">Selecciona un perfil</option>
+
+                @foreach (var rol in roles)
+                {
+                    <option value="@rol.RolID">@rol.Nombre</option>
+                }
+
+            </InputSelect>
+        </div>
+
+        <button type="submit"
+                class="btn btn-primary"
+                disabled="@guardando">
+            @(guardando ? "Guardando..." : "Crear usuario")
+        </button>
+
+    </EditForm>
+}
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger mt-3" role="alert">@error</div>
+}
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-success mt-3" role="status">@mensaje</div>
+}
+
+
+@code {
+    private CrearUsuarioFormulario formulario = new();
+    private List<RolOpcion> roles = new();
+    private bool cargando = true;
+    private bool permitido;
+    private bool guardando;
+    private string? error;
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var respuesta =
+                await Http.GetAsync("api/usuarios/roles");
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                error = "No tienes permiso para crear usuarios.";
+                return;
+            }
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                error = "No fue posible cargar los perfiles.";
+                return;
+            }
+
+            roles = await respuesta.Content
+                .ReadFromJsonAsync<List<RolOpcion>>() ?? new();
+
+            permitido = true;
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (guardando)
+            return;
+
+        guardando = true;
+        error = null;
+        mensaje = null;
+
+        try
+        {
+            using var respuesta =
+                await Http.PostAsJsonAsync("api/usuarios", formulario);
+
+            if (respuesta.IsSuccessStatusCode)
+            {
+                mensaje = "Usuario creado correctamente.";
+                formulario = new();
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                permitido = false;
+                error = "No tienes permiso para crear usuarios.";
+            }
+            else if (respuesta.StatusCode == HttpStatusCode.BadRequest)
+            {
+                error = "Verifica los datos. El nombre de usuario podría estar registrado.";
+            }
+            else
+            {
+                error = "No fue posible crear el usuario.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado. Verifica si el usuario se creó antes de repetir.";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    public class CrearUsuarioFormulario : IValidatableObject
+    {
+        [Required(ErrorMessage = "El nombre de usuario es obligatorio.")]
+        [StringLength(100, ErrorMessage = "El usuario acepta hasta 100 caracteres.")]
+        public string NombreUsuario { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es obligatoria.")]
+        [MinLength(10, ErrorMessage = "La contraseña requiere al menos 10 caracteres.")]
+        public string Contrasena { get; set; } = string.Empty;
+
+        [Range(1, int.MaxValue, ErrorMessage = "Selecciona un perfil.")]
+        public int RolID { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(
+            ValidationContext validationContext)
+        {
+            if (!string.IsNullOrEmpty(Contrasena)
+                && (!Contrasena.Any(char.IsLetter)
+                    || !Contrasena.Any(char.IsDigit)))
+            {
+                yield return new ValidationResult(
+                    "La contraseña debe incluir letras y números.",
+                    new[] { nameof(Contrasena) });
+            }
+        }
+    }
+}

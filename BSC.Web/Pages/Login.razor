@@ -1,0 +1,99 @@
+﻿@page "/login"
+@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Iniciar sesión</PageTitle>
+
+<h1>Iniciar sesión</h1>
+
+<h3>Login</h3>
+
+<EditForm Model="@formulario" OnValidSubmit="@IniciarSesionAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label for="usuario" class="form-label">Usuario</label>
+        <InputText id="usuario" class="form-control" autocomplete="username" @bind-Value="formulario.NombreUsuario" />
+    </div>
+
+    <div class="mb-3">
+        <label for="contrasena" class="form-label">Contraseña</label>
+        <InputText id="contrasena" type="password" class="form-control" autocomplete="current-password" @bind-Value="formulario.Contrasena" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="alert alert-danger" role="alert">
+            @error
+        </div>
+    }
+
+    <button type="submit" class="btn btn-primary" disabled="@enviando">
+        @(enviando ? "Ingresando..." : "Entrar")
+    </button>
+</EditForm>
+
+
+@code {
+    private readonly LoginFormulario formulario = new();
+    private string? error;
+    private bool enviando;
+
+    private async Task IniciarSesionAsync ()
+    {
+        if (enviando)
+            return;
+
+        enviando = true;
+        error = null;
+
+        try
+        {
+            using var response = await Http.PostAsJsonAsync(
+                "api/auth/login", formulario
+            );
+
+            if(response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized){
+                error = "Usuario o contraseña incorrectos.";
+            }
+            else
+            {
+                error = "No fue posible iniciar sesión.";
+            }
+
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud excedió el tiempo de espera máximo. Intenta de nuevo.";
+        }
+        finally
+        {
+            enviando = false;
+            formulario.Contrasena = string.Empty;
+        }
+    }
+
+    public class LoginFormulario
+    {
+        [Required(ErrorMessage = "Escribe tu usuario.")]
+        public string NombreUsuario { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Escribe tu contraseña.")]
+        public string Contrasena { get; set; } = string.Empty;
+
+
+    }
+}

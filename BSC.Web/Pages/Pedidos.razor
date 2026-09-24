@@ -1,0 +1,137 @@
+﻿@page "/pedidos"
+@using System.Net
+@using System.Net.Http.Json
+@using BSC.Web.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Pedidos</PageTitle>
+
+<div class="header-pagina">
+    <h1>Pedidos</h1>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Volver al inicio
+    </a>
+</div>
+
+<button class="btn btn-outline-primary mb-3"
+        disabled="@cargando"
+        @onclick="CargarPedidosAsync">
+    Actualizar
+</button>
+
+@if (cargando)
+{
+    <p>Cargando pedidos...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger" role="alert">@error</div>
+}
+else if (pedidos.Count == 0)
+{
+    <p>No hay pedidos registrados.</p>
+}
+else
+{
+    @foreach (var pedido in pedidos.GroupBy(p => p.PedidoID))
+    {
+        var cabecera = pedido.First();
+
+        <section class="card mb-3" @key="pedido.Key">
+            <div class="card-header">
+                <strong>Pedido #@pedido.Key</strong>
+                <span class="ms-3">
+                    @cabecera.FechaPedido.ToString("dd/MM/yyyy HH:mm")
+                </span>
+            </div>
+
+            <div class="card-body">
+                <p><strong>Cliente:</strong> @cabecera.Cliente</p>
+                <p><strong>Vendedor:</strong> @cabecera.Vendedor</p>
+
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Clave</th>
+                                <th>Producto</th>
+                                <th class="text-end">Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detalle in pedido)
+                            {
+                                <tr @key="detalle.ProductoID">
+                                    <td>@detalle.ClaveProducto</td>
+                                    <td>@detalle.NombreProducto</td>
+                                    <td class="text-end">
+                                        @detalle.Cantidad
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private List<PedidoDetalle> pedidos = new();
+    private bool cargando = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarPedidosAsync();
+    }
+
+    private async Task CargarPedidosAsync()
+    {
+        cargando = true;
+        error = null;
+        pedidos.Clear();
+
+        try
+        {
+            using var respuesta =
+                await Http.GetAsync("api/pedidos");
+
+            if (respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if (respuesta.StatusCode == HttpStatusCode.Forbidden)
+            {
+                error = "No tienes permiso para consultar los pedidos.";
+                return;
+            }
+
+            if (!respuesta.IsSuccessStatusCode)
+            {
+                error = "No fue posible consultar los pedidos.";
+                return;
+            }
+
+            pedidos = await respuesta.Content
+                .ReadFromJsonAsync<List<PedidoDetalle>>() ?? new();
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+}

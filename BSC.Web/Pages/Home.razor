@@ -1,0 +1,145 @@
+﻿@page "/"
+@using System.Net
+@using System.Net.Http.Json
+@using BSC.Web.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>BSC</PageTitle>
+
+@if (cargando)
+{
+    <p>Cargando...</p>
+}
+else if (usuario is not null)
+{
+
+    <div class="header-inicio">
+        <h1>Bienvenido, @usuario.NombreUsuario</h1>
+
+        <button class="btn btn-outline-danger" disabled="@cerrandoSesion" @onclick="CerrarSesionAsync">
+            @(cerrandoSesion ? "Saliendo..." : "Cerrar sesión")
+        </button>
+    </div>
+
+    <p>Perfil: <strong>@usuario.Rol</strong></p>
+
+    @switch (usuario.Rol) {
+        case "Administrador" :
+            <p>Administra los usuarios y sus perfiles.</p>
+            <a href="/usuarios/crear" class="btn btn-primary mb-3">
+                Crear usuario
+            </a>
+            break;
+        case "Personal administrativo":
+            <p>Administrar productos y consulta pedidos.</p>
+            <div class="personal-btn-container mt-4">
+
+                <a href="/inventario" class="btn btn-primary mb-3">
+                    Consultar inventario
+                </a>
+                <a href="/productos/crear" class="btn btn-success mb-3">
+                    Registrar producto
+                </a>
+                <a href="/pedidos" class="btn btn-primary mb-3">
+                    Consultar pedidos
+                </a>
+                <a href="/inventario/entrada" class="btn btn-success mb-3">
+                    Registrar entrada de inventario
+                </a>
+
+            </div>
+            break;
+
+        case "Vendedor":
+            <p>Puedes seleccionar productos y crear pedidos.</p>
+            <a href="/pedidos/crear" class="btn btn-primary mb-3">
+                Crear pedido
+            </a>
+            break;
+    }
+
+
+
+}
+
+@if (!string.IsNullOrEmpty(error)) {
+    <div class="alert alert-danger mt-3" role="alert">
+        @error
+    </div>
+}
+
+@code {
+    private UsuarioSesion? usuario;
+    private bool cargando = true;
+    private bool cerrandoSesion;
+    private string? error;
+
+    protected override async Task OnInitializedAsync() {
+
+        try 
+        {
+            using var respuesta = await Http.GetAsync("api/auth/me");
+
+            if( respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            if(!respuesta.IsSuccessStatusCode)
+            {
+                error = "No fue posible consultar la sesión.";
+                return;
+            }
+
+            usuario = await respuesta.Content.ReadFromJsonAsync<UsuarioSesion>();
+
+            if(usuario is null)
+            {
+                error = "La respuesta de sesión está vacía.";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CerrarSesionAsync ()
+    {
+        cerrandoSesion = true;
+        error = null;
+
+        try
+        {
+            using var respuesta = await Http.PostAsync("api/auth/logout", null);
+
+            if (respuesta.IsSuccessStatusCode || respuesta.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                usuario = null;
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                error = "No fue posible cerrar sesión.";
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            error = "La solicitud tardó demasiado.";
+        }
+        finally
+        {
+            cerrandoSesion = false;
+        }
+    } 
+}

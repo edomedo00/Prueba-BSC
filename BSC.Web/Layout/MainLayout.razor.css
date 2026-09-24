@@ -1,0 +1,35 @@
+﻿.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    padding: 0 2rem;
+    background: #51b047;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+
+main {
+    padding-top: 64px;
+    min-height: 100vh;
+}
+
+.content {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+@media (max-width: 640px) {
+    .header {
+        padding: 0 1rem;
+    }
+
+    .header {
+        padding: 1rem;
+    }
+}
