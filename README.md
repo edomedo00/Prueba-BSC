@@ -1,24 +1,24 @@
 # BSC
 
-Aplicaci髇 web para administrar usuarios, productos, inventario y pedidos.
+Aplicaci贸n web para administrar usuarios, productos, inventario y pedidos.
 
-## Tecnolog韆s
+## Tecnolog铆as
 
 .NET 8, Blazor WebAssembly, API REST en C# y SQL Server.
 
 ## Proyectos
 
 - BSC.Web: interfaz.
-- BSC.Api: endpoints, autenticaci髇 y permisos.
-- BSC.Business: l骻ica de negocio.
+- BSC.Api: endpoints, autenticaci贸n y permisos.
+- BSC.Business: l贸gica de negocio.
 - BSC.DataAccess: acceso a SQL Server.
 
-## Instalaci髇 y ejecuci髇
+## Instalaci贸n y ejecuci贸n
 
 1. Ejecutar `database/BSC_INITIALIZE.sql` en SQL Server para crear la base BSC y sus datos iniciales.
-2. Ajustar la conexi髇 en `BSC.Api/appsettings.json`.
-3. Abrir la soluci髇 en Visual Studio y restaurar los paquetes NuGet.
-4. Iniciar BSC.Api y BSC.Web mediante HTTPS, manteniendo ambos en ejecuci髇.
+2. Ajustar la conexi贸n en `BSC.Api/appsettings.json`.
+3. Abrir la soluci贸n en Visual Studio y restaurar los paquetes NuGet.
+4. Iniciar BSC.Api y BSC.Web mediante HTTPS, manteniendo ambos en ejecuci贸n.
 5. Abrir https://localhost:7220.
 
 API: https://localhost:7276.
@@ -26,7 +26,7 @@ API: https://localhost:7276.
 ## Acceso inicial
 
 - Usuario: admin
-- Contrase馻: administrador1
+- Contrase帽a: administrador1
 
 ## Perfiles
 
@@ -36,21 +36,21 @@ API: https://localhost:7276.
 
 ## Base de datos
 
-Incluye tablas relacionadas, procedimientos almacenados, una vista de pedidos, 韓dices y un trigger de historial de inventario.
+Incluye tablas relacionadas, procedimientos almacenados, una vista de pedidos, 铆ndices y un trigger de historial de inventario.
 
-Los pedidos se guardan en una transacci髇. Si falta inventario, se revierte toda la operaci髇.
+Los pedidos se guardan en una transacci贸n. Si falta inventario, se revierte toda la operaci贸n.
 
 ## Consideraciones
 
-- Las contrase馻s se almacenan como hashes.
+- Las contrase帽as se almacenan como hashes.
 - El carrito es temporal y no reserva existencias.
 - Los permisos se validan en la API.
 
 ## Diagramas
 
-- Entidad-relaci髇: Diagrama_Entidad-Relacion.png
+- Entidad-relaci贸n: Diagrama_Entidad-Relacion.png
 - Componentes: Diagrama_Componentes.png
 
-![Entidad-relaci髇](docs/Diagrama_Entidad-Relacion.png)
+![Entidad-relaci贸n](docs/Diagrama_Entidad-Relacion.png)
 
 ![Componentes](docs/Diagrama_Componentes.png)

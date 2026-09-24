@@ -248,13 +248,6 @@ GO
 
 
 -- INSERCIONES
--- USUARIO ADMINISTRADOR [admin, administrador1]
-INSERT INTO dbo.Usuario (NombreUsuario, ContrasenaHash, RolID)
-VALUES (
-    'admin',
-    'AQAAAAIAAYagAAAAECL+RHi3yLegvK5JzoYb7/5HEapq+K902GG+lONuzvgl9MCjz3qMhmcr2DyCASfSHg==',
-    1
-);
 
 INSERT INTO dbo.Rol (Nombre)
 SELECT V.Nombre
@@ -267,6 +260,14 @@ WHERE NOT EXISTS (
     SELECT 1
     FROM dbo.Rol AS R
     WHERE R.Nombre = V.Nombre
+);
+
+-- USUARIO ADMINISTRADOR [admin, administrador1]
+INSERT INTO dbo.Usuario (NombreUsuario, ContrasenaHash, RolID)
+VALUES (
+    'admin',
+    'AQAAAAIAAYagAAAAECL+RHi3yLegvK5JzoYb7/5HEapq+K902GG+lONuzvgl9MCjz3qMhmcr2DyCASfSHg==',
+    1
 );
 
 INSERT INTO dbo.Producto (Nombre, Inventario, ClaveProducto)
