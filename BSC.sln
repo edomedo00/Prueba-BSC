@@ -22,6 +22,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{41D2F134-2
 		docs\Diagrama_Entidad-Relacion.png = docs\Diagrama_Entidad-Relacion.png
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "database", "database", "{8383E053-32BC-4C78-BFD8-FBB28E68765F}"
+	ProjectSection(SolutionItems) = preProject
+		database\BSC_INITIALIZE.sql = database\BSC_INITIALIZE.sql
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

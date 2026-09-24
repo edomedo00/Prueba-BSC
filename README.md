@@ -15,7 +15,7 @@ Aplicación web para administrar usuarios, productos, inventario y pedidos.
 
 ## Instalación y ejecución
 
-1. Ejecutar `Prueba_BSC.sql` en SQL Server para crear la base BSC y sus datos iniciales.
+1. Ejecutar `database/BSC_INITIALIZE.sql` en SQL Server para crear la base BSC y sus datos iniciales.
 2. Ajustar la conexión en `BSC.Api/appsettings.json`.
 3. Abrir la solución en Visual Studio y restaurar los paquetes NuGet.
 4. Iniciar BSC.Api y BSC.Web mediante HTTPS (se inician simultáneamente al iniciar la solución).
