@@ -133,6 +133,10 @@ else if (usuario is not null)
                 error = "No fue posible cerrar sesión.";
             }
         }
+        catch (HttpRequestException)
+        {
+            error = "No se pudo conectar con la API.";
+        }
         catch (TaskCanceledException)
         {
             error = "La solicitud tardó demasiado.";

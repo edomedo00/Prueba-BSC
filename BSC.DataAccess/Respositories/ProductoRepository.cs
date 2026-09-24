@@ -95,7 +95,7 @@ namespace BSC.DataAccess.Respositories
             {
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
-            catch (SqlException ex) when (ex.Number is 50001 or 50002) // Errores definidos en el procedimiento de sql
+            catch (SqlException ex) when (ex.Number is 50001 or 50005) // Errores definidos en el procedimiento de sql
             {
                 throw new ArgumentException(ex.Message, ex);
             }
